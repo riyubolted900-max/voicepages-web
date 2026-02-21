@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { api } from '../services/api'
@@ -9,6 +9,22 @@ function Settings() {
   const [url, setUrl] = useState(serverUrl)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
+  const [detectedIp, setDetectedIp] = useState('')
+
+  useEffect(() => {
+    // Auto-detect local IP
+    fetch('https://api.ipify.org?format=json')
+      .then(r => r.json())
+      .then(data => {
+        // Try common local IP patterns
+        const parts = data.ip.split('.')
+        if (parts.length === 4) {
+          // Guess local IP (replace last octet with common patterns)
+          setDetectedIp(`192.168.1.${parts[3]}`)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const handleSave = () => {
     setServerUrl(url)
@@ -16,19 +32,22 @@ function Settings() {
     navigate('/')
   }
 
+  const useDetectedIp = () => {
+    if (detectedIp) {
+      setUrl(`http://${detectedIp}:9000`)
+    }
+  }
+
   const testConnection = async () => {
     setTesting(true)
     setTestResult(null)
     
     try {
-      // Temporarily set URL
       const oldUrl = api.getServerUrl()
       api.setServerUrl(url)
       
       await api.healthCheck()
-      setTestResult({ success: true, message: 'Connected!' })
-      
-      // Restore
+      setTestResult({ success: true, message: 'Connected! ✓' })
       api.setServerUrl(oldUrl)
     } catch (err) {
       setTestResult({ success: false, message: err.message })
@@ -41,13 +60,23 @@ function Settings() {
     <div>
       <header className="header">
         <button className="back-btn" onClick={() => navigate('/')}>←</button>
-        <h1 style={{ flex: 1, marginLeft: '0.5rem' }}>Settings</h1>
+        <h1 style={{ flex: 1, marginLeft: '0.5rem' }}>Setup</h1>
       </header>
 
       <main>
-        {/* Server URL */}
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>Server Configuration</h3>
+        {/* Quick Setup */}
+        <div className="card" style={{ background: 'linear-gradient(135deg, var(--surface), var(--bg-light))' }}>
+          <h3 style={{ marginBottom: '1rem' }}>🚀 Quick Connect</h3>
+          
+          {detectedIp && (
+            <button 
+              className="btn btn-primary"
+              onClick={useDetectedIp}
+              style={{ width: '100%', marginBottom: '1rem' }}
+            >
+              Use detected IP: {detectedIp}
+            </button>
+          )}
           
           <div className="settings-section">
             <div className="settings-label">Server URL</div>
@@ -58,9 +87,6 @@ function Settings() {
               onChange={(e) => setUrl(e.target.value)}
               placeholder="http://192.168.1.x:9000"
             />
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-              Enter the IP address of your Mac server. Port is usually 9000.
-            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -68,14 +94,16 @@ function Settings() {
               className="btn btn-secondary"
               onClick={testConnection}
               disabled={testing}
+              style={{ flex: 1 }}
             >
-              {testing ? 'Testing...' : 'Test Connection'}
+              {testing ? 'Testing...' : 'Test'}
             </button>
             <button 
               className="btn btn-primary"
               onClick={handleSave}
+              style={{ flex: 1 }}
             >
-              Save
+              Save & Go
             </button>
           </div>
 
@@ -85,51 +113,77 @@ function Settings() {
               padding: '0.75rem',
               borderRadius: 8,
               background: testResult.success ? 'rgba(0, 184, 148, 0.2)' : 'rgba(231, 76, 60, 0.2)',
-              color: testResult.success ? 'var(--success)' : 'var(--danger)'
+              color: testResult.success ? 'var(--success)' : 'var(--danger)',
+              textAlign: 'center'
             }}>
               {testResult.message}
             </div>
           )}
         </div>
 
-        {/* Help */}
+        {/* Setup Guide */}
         <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>How to Use</h3>
+          <h3 style={{ marginBottom: '1rem' }}>📋 Setup Guide</h3>
           
           <div style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
-            <p style={{ marginBottom: '0.75rem' }}>
-              <strong>1. Run the server on your Mac:</strong><br/>
-              <code style={{ background: 'var(--bg)', padding: '0.2rem 0.4rem', borderRadius: 4 }}>
-                cd voicepages-server && pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 9000
-              </code>
-            </p>
+            <details style={{ marginBottom: '0.75rem' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>1. Run server on Mac</summary>
+              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
+                Open Terminal and run:<br/>
+                <code style={{ background: 'var(--bg)', padding: '0.2rem 0.4rem', borderRadius: 4, fontSize: '0.8rem' }}>
+                  cd voicepages-server && ./start.sh
+                </code>
+              </div>
+            </details>
             
-            <p style={{ marginBottom: '0.75rem' }}>
-              <strong>2. Find your Mac's IP address:</strong><br/>
-              System Settings → Network → Wi-Fi → IP Address (e.g., 192.168.1.100)
-            </p>
+            <details style={{ marginBottom: '0.75rem' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>2. Find Mac's IP</summary>
+              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
+                System Settings → Network → Wi-Fi → IP Address<br/>
+                Looks like: 192.168.1.xxx
+              </div>
+            </details>
             
-            <p style={{ marginBottom: '0.75rem' }}>
-              <strong>3. Open on mobile:</strong><br/>
-              Enter {url.replace('localhost', 'YOUR_MAC_IP')}:9000 in your phone's browser
-            </p>
+            <details style={{ marginBottom: '0.75rem' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>3. Open on iPhone</summary>
+              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
+                Safari → http://YOUR_IP:3000<br/>
+                Then tap Share → Add to Home Screen
+              </div>
+            </details>
             
+            <details>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>4. Enter Server URL</summary>
+              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
+                This page → Enter: http://YOUR_IP:9000
+              </div>
+            </details>
+          </div>
+        </div>
+
+        {/* Troubleshooting */}
+        <div className="card">
+          <h3 style={{ marginBottom: '0.5rem' }}>🔧 Troubleshooting</h3>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            <p style={{ marginBottom: '0.5rem' }}>
+              <strong>Can't connect?</strong><br/>
+              • Make sure Mac and iPhone on same WiFi<br/>
+              • Check firewall allows port 9000
+            </p>
             <p>
-              <strong>4. For PWA:</strong><br/>
-              Tap Share → Add to Home Screen for full-screen experience
+              <strong>No audio?</strong><br/>
+              • TTS needs Kokoro or macOS Speech<br/>
+              • Server generates placeholder audio by default
             </p>
           </div>
         </div>
 
-        {/* Info */}
-        <div className="card">
-          <h3 style={{ marginBottom: '0.5rem' }}>About</h3>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            <p>VoicePages v1.0.0</p>
-            <p>AI-Powered Multi-Voice Audiobook Reader</p>
-            <p style={{ marginTop: '0.5rem' }}>
-              Built with FastAPI, React, and Kokoro TTS
-            </p>
+        {/* About */}
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎧</div>
+          <div style={{ fontWeight: 600 }}>VoicePages</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            AI-Powered Multi-Voice Audiobook
           </div>
         </div>
       </main>
