@@ -7,6 +7,7 @@ import BookDetail from './pages/BookDetail'
 import Reader from './pages/Reader'
 import Settings from './pages/Settings'
 import PlayerBar from './components/PlayerBar'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function App() {
   const { setServerUrl, loadVoices, loadBooks } = useStore()
@@ -18,7 +19,7 @@ function App() {
     const hostname = window.location.hostname
     const serverUrl = `${protocol}//${hostname}:9000`
     setServerUrl(serverUrl)
-    
+
     // Initial load
     Promise.all([
       loadVoices(),
@@ -36,19 +37,21 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <div className="app-container">
-        <div className="main-content">
-          <Routes>
-            <Route path="/" element={<Library />} />
-            <Route path="/book/:bookId" element={<BookDetail />} />
-            <Route path="/book/:bookId/chapter/:chapterId" element={<Reader />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <div className="app-container">
+          <div className="main-content">
+            <Routes>
+              <Route path="/" element={<Library />} />
+              <Route path="/book/:bookId" element={<BookDetail />} />
+              <Route path="/book/:bookId/chapter/:chapterId" element={<Reader />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </div>
+          <PlayerBar />
         </div>
-        <PlayerBar />
-      </div>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

@@ -12,8 +12,7 @@ function Reader() {
     setPlaying, playing,
     currentTime, setCurrentTime,
     duration, setDuration,
-    setPlaybackSpeed, playbackSpeed,
-    setPlayingContext, setAudioUrl
+    setPlaybackSpeed, playbackSpeed
   } = useStore()
 
   const [chapter, setChapter] = useState(null)
@@ -89,7 +88,6 @@ function Reader() {
 
     const url = URL.createObjectURL(audioBlob)
     objectUrlRef.current = url
-    setAudioUrl(url)
 
     const howl = new Howl({
       src: [url],
@@ -98,7 +96,6 @@ function Reader() {
       rate: playbackSpeed,
       onplay: () => {
         setPlaying(true)
-        setPlayingContext(bookId, chapterNum, title)
       },
       onpause: () => setPlaying(false),
       onstop: () => setPlaying(false),

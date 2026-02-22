@@ -19,7 +19,17 @@ function PlayerBar() {
   const progressRef = useRef(null)
   const objectUrlRef = useRef(null)
 
-  // If no chapter is playing, don't render
+  // Update progress — this hook MUST always run (no early returns before hooks!)
+  useEffect(() => {
+    if (!playing || !howlRef.current) return
+    const interval = setInterval(() => {
+      const time = howlRef.current?.seek()
+      if (typeof time === 'number') setCurrentTime(time)
+    }, 200)
+    return () => clearInterval(interval)
+  }, [playing, setCurrentTime])
+
+  // If no chapter is playing, don't render — AFTER all hooks
   if (!playingBookId || playingChapterId == null) {
     return null
   }
@@ -45,10 +55,11 @@ function PlayerBar() {
             onstop: () => setPlaying(false),
             onend: () => {
               setPlaying(false)
-              const next = playingChapterId + 1
-              navigate(`/book/${playingBookId}/chapter/${next}`)
             },
-            onload: () => setDuration(howl.duration())
+            onload: () => setDuration(howl.duration()),
+            onloaderror: (id, err) => {
+              console.error('PlayerBar audio load error:', err)
+            }
           })
           howlRef.current = howl
           howl.play()
@@ -87,16 +98,6 @@ function PlayerBar() {
     }
     clearPlayingContext()
   }
-
-  // Update progress
-  useEffect(() => {
-    if (!playing || !howlRef.current) return
-    const interval = setInterval(() => {
-      const time = howlRef.current?.seek()
-      if (typeof time === 'number') setCurrentTime(time)
-    }, 200)
-    return () => clearInterval(interval)
-  }, [playing, setCurrentTime])
 
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00'
