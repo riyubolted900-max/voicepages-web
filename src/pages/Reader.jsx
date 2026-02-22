@@ -85,6 +85,7 @@ function Reader() {
 
     const howl = new Howl({
       src: [url],
+      format: ['wav'],
       html5: true,
       rate: playbackSpeed,
       onplay: () => {
