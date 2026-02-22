@@ -7,23 +7,20 @@ import { Howl } from 'howler'
 function PlayerBar() {
   const navigate = useNavigate()
   const {
-    playing,
-    setPlaying,
-    currentTime,
-    setCurrentTime,
-    duration,
-    setDuration,
+    playing, setPlaying,
+    currentTime, setCurrentTime,
+    duration, setDuration,
     playbackSpeed,
-    playingBookId,
-    playingChapterId,
-    playingChapterTitle
+    playingBookId, playingChapterId, playingChapterTitle,
+    clearPlayingContext
   } = useStore()
 
   const howlRef = useRef(null)
   const progressRef = useRef(null)
+  const objectUrlRef = useRef(null)
 
-  // If no chapter is playing, don't show
-  if (!playingBookId || !playingChapterId) {
+  // If no chapter is playing, don't render
+  if (!playingBookId || playingChapterId == null) {
     return null
   }
 
@@ -33,7 +30,11 @@ function PlayerBar() {
       try {
         const audioBlob = await api.getAudio(playingBookId, playingChapterId)
         if (audioBlob) {
+          // Clean up previous URL
+          if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
           const url = URL.createObjectURL(audioBlob)
+          objectUrlRef.current = url
+
           const howl = new Howl({
             src: [url],
             html5: true,
@@ -43,7 +44,6 @@ function PlayerBar() {
             onstop: () => setPlaying(false),
             onend: () => {
               setPlaying(false)
-              // Next chapter
               const next = playingChapterId + 1
               navigate(`/book/${playingBookId}/chapter/${next}`)
             },
@@ -67,11 +67,9 @@ function PlayerBar() {
 
   const handleSeek = (e) => {
     if (!howlRef.current || !progressRef.current) return
-    
     const rect = progressRef.current.getBoundingClientRect()
     const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     const time = percent * howlRef.current.duration()
-    
     howlRef.current.seek(time)
     setCurrentTime(time)
   }
@@ -82,22 +80,22 @@ function PlayerBar() {
       howlRef.current.unload()
       howlRef.current = null
     }
-    setPlaying(false)
-    setCurrentTime(0)
-    navigate(`/book/${playingBookId}/chapter/${playingChapterId}`)
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
+    clearPlayingContext()
   }
 
   // Update progress
   useEffect(() => {
     if (!playing || !howlRef.current) return
-    
     const interval = setInterval(() => {
       const time = howlRef.current?.seek()
-      setCurrentTime(time || 0)
-    }, 100)
-    
+      if (typeof time === 'number') setCurrentTime(time)
+    }, 200)
     return () => clearInterval(interval)
-  }, [playing])
+  }, [playing, setCurrentTime])
 
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00'
@@ -111,13 +109,13 @@ function PlayerBar() {
   return (
     <div className="player-bar">
       {/* Progress bar */}
-      <div 
+      <div
         ref={progressRef}
         className="progress-bar"
         onClick={handleSeek}
       >
-        <div 
-          className="progress-fill" 
+        <div
+          className="progress-fill"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -127,20 +125,20 @@ function PlayerBar() {
         <div className="player-title">
           {playingChapterTitle || `Chapter ${playingChapterId}`}
         </div>
-        
+
         <div className="player-controls">
           <button className="play-btn" onClick={togglePlay}>
-            {playing ? '⏸' : '▶'}
+            {playing ? '\u23F8' : '\u25B6'}
           </button>
-          
-          <button 
-            className="btn btn-icon" 
+
+          <button
+            className="btn btn-icon"
             onClick={handleStop}
             style={{ fontSize: '1.25rem' }}
           >
-            ⏹
+            &#9632;
           </button>
-          
+
           <div className="time-display">
             {formatTime(currentTime)} / {formatTime(duration)}
           </div>

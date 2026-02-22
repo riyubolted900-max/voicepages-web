@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { api } from '../services/api'
@@ -6,32 +6,35 @@ import { Howl } from 'howler'
 
 function Reader() {
   const { bookId, chapterId } = useParams()
+  const chapterNum = Number(chapterId)
   const navigate = useNavigate()
-  const { 
-    setPlaying, 
-    playing, 
-    setCurrentTime, 
-    setDuration,
-    setPlaybackSpeed,
-    playbackSpeed,
-    playingBookId,
-    playingChapterId,
-    setPlayingContext
+  const {
+    setPlaying, playing,
+    setCurrentTime, setDuration,
+    setPlaybackSpeed, playbackSpeed,
+    playingBookId, playingChapterId,
+    setPlayingContext, setAudioUrl
   } = useStore()
 
   const [chapter, setChapter] = useState(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
-  
+
   const howlRef = useRef(null)
   const progressRef = useRef(null)
+  const objectUrlRef = useRef(null)
 
   useEffect(() => {
     loadChapter()
     return () => {
       if (howlRef.current) {
         howlRef.current.unload()
+        howlRef.current = null
+      }
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
       }
     }
   }, [bookId, chapterId])
@@ -39,30 +42,27 @@ function Reader() {
   const loadChapter = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      // Load chapter text
-      const chapterData = await api.getChapter(bookId, chapterId)
+      const chapterData = await api.getChapter(bookId, chapterNum)
       setChapter(chapterData)
-      
+
       // Try to get cached audio or generate new
-      let audioBlob = await api.getAudio(bookId, chapterId)
-      
+      let audioBlob = await api.getAudio(bookId, chapterNum)
+
       if (!audioBlob) {
-        // Need to generate audio
         setGenerating(true)
         try {
-          audioBlob = await api.generateAudio(bookId, chapterId)
+          audioBlob = await api.generateAudio(bookId, chapterNum)
         } catch (e) {
           console.warn('Audio generation failed:', e)
         }
         setGenerating(false)
       }
-      
+
       if (audioBlob) {
         setupAudioPlayer(audioBlob, chapterData.title)
       }
-      
     } catch (err) {
       setError(err.message)
     } finally {
@@ -75,22 +75,27 @@ function Reader() {
     if (howlRef.current) {
       howlRef.current.unload()
     }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+    }
 
     const url = URL.createObjectURL(audioBlob)
-    
+    objectUrlRef.current = url
+    setAudioUrl(url)
+
     const howl = new Howl({
       src: [url],
-      html5: true, // Use HTML5 Audio for streaming
+      html5: true,
+      rate: playbackSpeed,
       onplay: () => {
         setPlaying(true)
-        setPlayingContext(bookId, chapterId, title)
+        setPlayingContext(bookId, chapterNum, title)
       },
       onpause: () => setPlaying(false),
       onstop: () => setPlaying(false),
       onend: () => {
         setPlaying(false)
-        // Auto-advance to next chapter
-        const nextChapter = parseInt(chapterId) + 1
+        const nextChapter = chapterNum + 1
         navigate(`/book/${bookId}/chapter/${nextChapter}`)
       },
       onload: () => {
@@ -101,15 +106,16 @@ function Reader() {
         setError('Failed to load audio')
       }
     })
-    
+
     howlRef.current = howl
   }
 
   const togglePlay = () => {
     if (!howlRef.current) return
-    
     if (playing) {
       howlRef.current.pause()
+      // Save bookmark on pause
+      api.saveBookmark(bookId, chapterNum, howlRef.current.seek() || 0).catch(() => {})
     } else {
       howlRef.current.play()
     }
@@ -117,11 +123,9 @@ function Reader() {
 
   const handleSeek = (e) => {
     if (!howlRef.current || !progressRef.current) return
-    
     const rect = progressRef.current.getBoundingClientRect()
-    const percent = (e.clientX - rect.left) / rect.width
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     const time = percent * howlRef.current.duration()
-    
     howlRef.current.seek(time)
     setCurrentTime(time)
   }
@@ -136,14 +140,24 @@ function Reader() {
   // Update progress bar
   useEffect(() => {
     if (!playing || !howlRef.current) return
-    
     const interval = setInterval(() => {
-      const time = howlRef.current.seek()
-      setCurrentTime(time || 0)
-    }, 100)
-    
+      const time = howlRef.current?.seek()
+      if (typeof time === 'number') setCurrentTime(time)
+    }, 200)
     return () => clearInterval(interval)
-  }, [playing])
+  }, [playing, setCurrentTime])
+
+  // Auto-save bookmark every 15s
+  useEffect(() => {
+    if (!playing || !howlRef.current) return
+    const interval = setInterval(() => {
+      const time = howlRef.current?.seek()
+      if (typeof time === 'number') {
+        api.saveBookmark(bookId, chapterNum, time).catch(() => {})
+      }
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [playing, bookId, chapterNum])
 
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00'
@@ -152,7 +166,7 @@ function Reader() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const isCurrentChapter = playingBookId === bookId && playingChapterId === parseInt(chapterId)
+  const isCurrentChapter = playingBookId === bookId && playingChapterId === chapterNum
 
   if (loading) {
     return (
@@ -165,7 +179,7 @@ function Reader() {
   return (
     <div style={{ paddingBottom: '1rem' }}>
       <header className="header">
-        <button className="back-btn" onClick={() => navigate(`/book/${bookId}`)}>←</button>
+        <button className="back-btn" onClick={() => navigate(`/book/${bookId}`)}>&#8592;</button>
         <h1 style={{ flex: 1, marginLeft: '0.5rem', fontSize: '1rem' }}>
           {chapter?.title || `Chapter ${chapterId}`}
         </h1>
@@ -173,20 +187,20 @@ function Reader() {
 
       <main style={{ padding: '1rem' }}>
         {error && (
-          <div style={{ 
-            padding: '1rem', 
-            background: 'rgba(231, 76, 60, 0.2)', 
+          <div style={{
+            padding: '1rem',
+            background: 'rgba(231, 76, 60, 0.2)',
             borderRadius: 8,
-            marginBottom: '1rem' 
+            marginBottom: '1rem'
           }}>
             {error}
           </div>
         )}
 
         {generating && (
-          <div style={{ 
-            padding: '1rem', 
-            background: 'var(--surface)', 
+          <div style={{
+            padding: '1rem',
+            background: 'var(--surface)',
             borderRadius: 8,
             marginBottom: '1rem',
             textAlign: 'center'
@@ -206,22 +220,22 @@ function Reader() {
         )}
 
         {/* Navigation */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           marginTop: '2rem',
-          gap: '1rem' 
+          gap: '1rem'
         }}>
-          {parseInt(chapterId) > 1 && (
-            <button 
+          {chapterNum > 1 && (
+            <button
               className="btn btn-secondary"
-              onClick={() => navigate(`/book/${bookId}/chapter/${parseInt(chapterId) - 1}`)}
+              onClick={() => navigate(`/book/${bookId}/chapter/${chapterNum - 1}`)}
             >
-              ← Previous
+              &#8592; Previous
             </button>
           )}
-          
-          <button 
+
+          <button
             className="btn btn-primary"
             onClick={() => navigate(`/book/${bookId}`)}
           >
@@ -230,8 +244,8 @@ function Reader() {
         </div>
       </main>
 
-      {/* Inline Player (visible when not in bottom bar) */}
-      {!isCurrentChapter && (
+      {/* Inline Player */}
+      {howlRef.current && (
         <div style={{
           position: 'fixed',
           bottom: 80,
@@ -245,12 +259,20 @@ function Reader() {
           borderTop: '1px solid var(--surface)'
         }}>
           <button className="play-btn" onClick={togglePlay}>
-            {playing ? '⏸' : '▶'}
+            {playing ? '\u23F8' : '\u25B6'}
           </button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '0.9rem' }}>{chapter?.title}</div>
+          <div
+            ref={progressRef}
+            className="progress-bar"
+            style={{ flex: 1 }}
+            onClick={handleSeek}
+          >
+            <div
+              className="progress-fill"
+              style={{ width: `${useStore.getState().duration ? (useStore.getState().currentTime / useStore.getState().duration) * 100 : 0}%` }}
+            />
           </div>
-          <select 
+          <select
             className="speed-select"
             value={playbackSpeed}
             onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}

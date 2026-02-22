@@ -19,28 +19,23 @@ class ApiService {
     return this.serverUrl
   }
 
-  // Helper for fetch
   async request(endpoint, options = {}) {
     const url = `${this.serverUrl}${endpoint}`
-    const config = {
-      headers: {},
-      ...options
-    }
+    const config = { headers: {}, ...options }
 
-    // Add JSON headers for body requests
-    if (options.body && typeof options.body === 'object') {
+    // Auto-JSON-stringify body objects (but not FormData)
+    if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
       config.headers['Content-Type'] = 'application/json'
       config.body = JSON.stringify(options.body)
     }
 
     const response = await fetch(url, config)
-    
+
     if (!response.ok) {
-      const error = await response.text()
+      const error = await response.text().catch(() => `HTTP ${response.status}`)
       throw new Error(error || `HTTP ${response.status}`)
     }
-    
-    // Handle different response types
+
     const contentType = response.headers.get('content-type')
     if (contentType?.includes('application/json')) {
       return response.json()
@@ -53,11 +48,7 @@ class ApiService {
 
   // Health check
   async healthCheck() {
-    try {
-      return await this.request('/api/health')
-    } catch (e) {
-      throw new Error(`Server unavailable: ${e.message}`)
-    }
+    return this.request('/api/health')
   }
 
   // List all books
@@ -69,16 +60,16 @@ class ApiService {
   async uploadBook(file) {
     const formData = new FormData()
     formData.append('file', file)
-    
+
     const response = await fetch(`${this.serverUrl}/api/books/upload`, {
       method: 'POST',
       body: formData
     })
-    
+
     if (!response.ok) {
       throw new Error(`Upload failed: ${response.status}`)
     }
-    
+
     return response.json()
   }
 
@@ -92,31 +83,27 @@ class ApiService {
     return this.request(`/api/books/${bookId}/chapters/${chapterId}`)
   }
 
-  // Generate chapter audio
+  // Generate chapter audio (POST triggers generation)
   async generateAudio(bookId, chapterId) {
     const response = await fetch(
       `${this.serverUrl}/api/books/${bookId}/chapters/${chapterId}/audio`,
       { method: 'POST' }
     )
-    
+
     if (!response.ok) {
       throw new Error(`Audio generation failed: ${response.status}`)
     }
-    
+
     return response.blob()
   }
 
-  // Get cached chapter audio
+  // Get cached chapter audio (GET returns existing)
   async getAudio(bookId, chapterId) {
     try {
       const response = await fetch(
         `${this.serverUrl}/api/books/${bookId}/chapters/${chapterId}/audio`
       )
-      
-      if (!response.ok) {
-        return null
-      }
-      
+      if (!response.ok) return null
       return response.blob()
     } catch {
       return null
@@ -130,7 +117,7 @@ class ApiService {
 
   // Update character voice
   async updateCharacterVoice(bookId, charName, voiceId) {
-    return this.request(`/api/books/${bookId}/characters/${charName}/voice`, {
+    return this.request(`/api/books/${bookId}/characters/${encodeURIComponent(charName)}/voice`, {
       method: 'PUT',
       body: { voice_id: voiceId }
     })
@@ -140,7 +127,7 @@ class ApiService {
   async saveBookmark(bookId, chapterId, position) {
     return this.request(`/api/books/${bookId}/bookmark`, {
       method: 'POST',
-      body: { chapter_id: chapterId, position }
+      body: { chapter_id: Number(chapterId), position }
     })
   }
 
@@ -160,19 +147,13 @@ class ApiService {
       `${this.serverUrl}/api/tts/generate?text=${encodeURIComponent(text)}&voice_id=${voiceId}`,
       { method: 'POST' }
     )
-    
-    if (!response.ok) {
-      throw new Error(`TTS failed: ${response.status}`)
-    }
-    
+    if (!response.ok) throw new Error(`TTS failed: ${response.status}`)
     return response.blob()
   }
 
   // Delete book
   async deleteBook(bookId) {
-    return this.request(`/api/books/${bookId}`, {
-      method: 'DELETE'
-    })
+    return this.request(`/api/books/${bookId}`, { method: 'DELETE' })
   }
 }
 

@@ -6,8 +6,8 @@ import { api } from '../services/api'
 function BookDetail() {
   const { bookId } = useParams()
   const navigate = useNavigate()
-  const { setCurrentBook, loadCharacters } = useStore()
-  
+  const { setCurrentBook, loadCharacters, voices } = useStore()
+
   const [book, setBook] = useState(null)
   const [chapters, setChapters] = useState([])
   const [characters, setCharacters] = useState([])
@@ -24,7 +24,7 @@ function BookDetail() {
         api.getBook(bookId),
         api.getCharacters(bookId)
       ])
-      
+
       setBook(bookData)
       setChapters(bookData.chapters || [])
       setCharacters(chars)
@@ -41,7 +41,10 @@ function BookDetail() {
   const handleVoiceChange = async (charName, voiceId) => {
     try {
       await api.updateCharacterVoice(bookId, charName, voiceId)
-      await loadBookData() // Refresh
+      // Optimistically update local state
+      setCharacters(prev =>
+        prev.map(c => c.name === charName ? { ...c, voice_id: voiceId } : c)
+      )
       setShowVoices(null)
     } catch (err) {
       alert(`Failed to update voice: ${err.message}`)
@@ -50,7 +53,6 @@ function BookDetail() {
 
   const handleDelete = async () => {
     if (!confirm('Delete this book?')) return
-    
     try {
       await api.deleteBook(bookId)
       navigate('/')
@@ -58,6 +60,20 @@ function BookDetail() {
       alert(`Failed to delete: ${err.message}`)
     }
   }
+
+  // Use voices from store (loaded from server), with fallback
+  const voiceList = voices.length > 0 ? voices : [
+    { id: 'af_sky', name: 'Sky', gender: 'female', accent: 'american', style: 'calm' },
+    { id: 'af_heart', name: 'Heart', gender: 'female', accent: 'american', style: 'warm' },
+    { id: 'af_bella', name: 'Bella', gender: 'female', accent: 'american', style: 'bright' },
+    { id: 'af_nova', name: 'Nova', gender: 'female', accent: 'american', style: 'confident' },
+    { id: 'am_adam', name: 'Adam', gender: 'male', accent: 'american', style: 'deep' },
+    { id: 'am_echo', name: 'Echo', gender: 'male', accent: 'american', style: 'energetic' },
+    { id: 'bm_daniel', name: 'Daniel', gender: 'male', accent: 'british', style: 'warm' },
+    { id: 'bm_george', name: 'George', gender: 'male', accent: 'british', style: 'distinguished' },
+    { id: 'bf_alice', name: 'Alice', gender: 'female', accent: 'british', style: 'gentle' },
+    { id: 'bf_emma', name: 'Emma', gender: 'female', accent: 'british', style: 'authoritative' },
+  ]
 
   if (loading) {
     return (
@@ -70,26 +86,22 @@ function BookDetail() {
   return (
     <div>
       <header className="header">
-        <button className="back-btn" onClick={() => navigate('/')}>←</button>
+        <button className="back-btn" onClick={() => navigate('/')}>&#8592;</button>
         <h1 style={{ flex: 1, marginLeft: '0.5rem' }}>{book?.title}</h1>
-        <button className="btn btn-icon" onClick={handleDelete}>🗑️</button>
+        <button className="btn btn-icon" onClick={handleDelete}>&#128465;</button>
       </header>
 
       <main>
         {/* Book Info */}
         <div className="card">
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-            <div style={{ 
-              width: 80, 
-              height: 110, 
-              background: 'var(--primary)', 
-              borderRadius: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '2rem'
+            <div style={{
+              width: 80, height: 110,
+              background: 'var(--primary)', borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '2rem', flexShrink: 0
             }}>
-              📖
+              &#128214;
             </div>
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>{book?.title}</h2>
@@ -97,7 +109,7 @@ function BookDetail() {
                 {book?.author || 'Unknown Author'}
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {chapters.length} chapters • {book?.file_type?.toUpperCase()}
+                {chapters.length} chapters &bull; {book?.file_type?.toUpperCase()}
               </div>
             </div>
           </div>
@@ -109,7 +121,7 @@ function BookDetail() {
             <h3 style={{ marginBottom: '0.75rem' }}>Characters</h3>
             <div className="character-list">
               {characters.map((char) => (
-                <div key={char.id} className="character-item">
+                <div key={char.id} className="character-item" style={{ position: 'relative' }}>
                   <div className="character-avatar">
                     {char.name[0].toUpperCase()}
                   </div>
@@ -120,28 +132,30 @@ function BookDetail() {
                     </div>
                     <div className="character-gender">{char.gender}</div>
                   </div>
-                  <button 
+                  <button
                     className="btn btn-secondary"
                     onClick={() => setShowVoices(showVoices === char.name ? null : char.name)}
                   >
-                    {char.voice_id || 'af_sky'} ▼
+                    {voiceList.find(v => v.id === char.voice_id)?.name || char.voice_id || 'Select'} &#9660;
                   </button>
-                  
-                  {/* Voice selector */}
+
+                  {/* Voice selector dropdown */}
                   {showVoices === char.name && (
-                    <div style={{ 
-                      position: 'absolute', 
-                      right: '1rem',
-                      top: '50%',
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '100%',
+                      marginTop: 4,
                       background: 'var(--bg-light)',
                       border: '1px solid var(--surface)',
                       borderRadius: 8,
                       padding: '0.5rem',
                       zIndex: 10,
                       maxHeight: 200,
-                      overflow: 'auto'
+                      overflow: 'auto',
+                      width: 200,
                     }}>
-                      {getVoices().map((voice) => (
+                      {voiceList.map((voice) => (
                         <div
                           key={voice.id}
                           className={`voice-option ${char.voice_id === voice.id ? 'selected' : ''}`}
@@ -149,7 +163,7 @@ function BookDetail() {
                           style={{ marginBottom: '0.25rem' }}
                         >
                           <div className="voice-name">{voice.name}</div>
-                          <div className="voice-meta">{voice.gender} • {voice.accent}</div>
+                          <div className="voice-meta">{voice.gender} &bull; {voice.accent}</div>
                         </div>
                       ))}
                     </div>
@@ -171,7 +185,7 @@ function BookDetail() {
                 onClick={() => navigate(`/book/${bookId}/chapter/${chapter.chapter_number}`)}
               >
                 <span>{chapter.title}</span>
-                <span style={{ color: 'var(--text-muted)' }}>▶</span>
+                <span style={{ color: 'var(--text-muted)' }}>&#9654;</span>
               </div>
             ))}
           </div>
@@ -179,22 +193,6 @@ function BookDetail() {
       </main>
     </div>
   )
-}
-
-// Fallback voices
-function getVoices() {
-  return [
-    { id: 'af_sky', name: 'Sky', gender: 'female', accent: 'american', style: 'calm' },
-    { id: 'af_heart', name: 'Heart', gender: 'female', accent: 'american', style: 'warm' },
-    { id: 'af_bella', name: 'Bella', gender: 'female', accent: 'american', style: 'bright' },
-    { id: 'af_nova', name: 'Nova', gender: 'female', accent: 'american', style: 'confident' },
-    { id: 'am_adam', name: 'Adam', gender: 'male', accent: 'american', style: 'deep' },
-    { id: 'am_echo', name: 'Echo', gender: 'male', accent: 'american', style: 'energetic' },
-    { id: 'bm_daniel', name: 'Daniel', gender: 'male', accent: 'british', style: 'warm' },
-    { id: 'bm_george', name: 'George', gender: 'male', accent: 'british', style: 'distinguished' },
-    { id: 'bf_alice', name: 'Alice', gender: 'female', accent: 'british', style: 'gentle' },
-    { id: 'bf_emma', name: 'Emma', gender: 'female', accent: 'british', style: 'authoritative' },
-  ]
 }
 
 export default BookDetail
