@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { api } from '../services/api'
@@ -10,9 +10,9 @@ function Reader() {
   const navigate = useNavigate()
   const {
     setPlaying, playing,
-    setCurrentTime, setDuration,
+    currentTime, setCurrentTime,
+    duration, setDuration,
     setPlaybackSpeed, playbackSpeed,
-    playingBookId, playingChapterId,
     setPlayingContext, setAudioUrl
   } = useStore()
 
@@ -20,14 +20,52 @@ function Reader() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
+  const [audioReady, setAudioReady] = useState(false)
 
   const howlRef = useRef(null)
   const progressRef = useRef(null)
   const objectUrlRef = useRef(null)
 
   useEffect(() => {
-    loadChapter()
+    let cancelled = false
+
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      setAudioReady(false)
+
+      try {
+        const chapterData = await api.getChapter(bookId, chapterNum)
+        if (cancelled) return
+        setChapter(chapterData)
+
+        // Try to get cached audio or generate new
+        let audioBlob = await api.getAudio(bookId, chapterNum)
+
+        if (!audioBlob && !cancelled) {
+          setGenerating(true)
+          try {
+            audioBlob = await api.generateAudio(bookId, chapterNum)
+          } catch (e) {
+            console.warn('Audio generation failed:', e)
+          }
+          if (!cancelled) setGenerating(false)
+        }
+
+        if (audioBlob && !cancelled) {
+          setupAudioPlayer(audioBlob, chapterData.title)
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+
     return () => {
+      cancelled = true
       if (howlRef.current) {
         howlRef.current.unload()
         howlRef.current = null
@@ -36,39 +74,9 @@ function Reader() {
         URL.revokeObjectURL(objectUrlRef.current)
         objectUrlRef.current = null
       }
+      setAudioReady(false)
     }
   }, [bookId, chapterId])
-
-  const loadChapter = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const chapterData = await api.getChapter(bookId, chapterNum)
-      setChapter(chapterData)
-
-      // Try to get cached audio or generate new
-      let audioBlob = await api.getAudio(bookId, chapterNum)
-
-      if (!audioBlob) {
-        setGenerating(true)
-        try {
-          audioBlob = await api.generateAudio(bookId, chapterNum)
-        } catch (e) {
-          console.warn('Audio generation failed:', e)
-        }
-        setGenerating(false)
-      }
-
-      if (audioBlob) {
-        setupAudioPlayer(audioBlob, chapterData.title)
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const setupAudioPlayer = (audioBlob, title) => {
     // Cleanup previous
@@ -96,15 +104,14 @@ function Reader() {
       onstop: () => setPlaying(false),
       onend: () => {
         setPlaying(false)
-        const nextChapter = chapterNum + 1
-        navigate(`/book/${bookId}/chapter/${nextChapter}`)
       },
       onload: () => {
         setDuration(howl.duration())
+        setAudioReady(true)
       },
       onloaderror: (id, err) => {
         console.error('Audio load error:', err)
-        setError('Failed to load audio')
+        setError('Failed to load audio. Try refreshing the page.')
       }
     })
 
@@ -113,12 +120,19 @@ function Reader() {
 
   const togglePlay = () => {
     if (!howlRef.current) return
-    if (playing) {
-      howlRef.current.pause()
-      // Save bookmark on pause
-      api.saveBookmark(bookId, chapterNum, howlRef.current.seek() || 0).catch(() => {})
-    } else {
-      howlRef.current.play()
+    try {
+      if (playing) {
+        howlRef.current.pause()
+        // Save bookmark on pause
+        const pos = howlRef.current.seek()
+        if (typeof pos === 'number') {
+          api.saveBookmark(bookId, chapterNum, pos).catch(() => {})
+        }
+      } else {
+        howlRef.current.play()
+      }
+    } catch (e) {
+      console.error('Play/pause error:', e)
     }
   }
 
@@ -126,7 +140,7 @@ function Reader() {
     if (!howlRef.current || !progressRef.current) return
     const rect = progressRef.current.getBoundingClientRect()
     const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    const time = percent * howlRef.current.duration()
+    const time = percent * (howlRef.current.duration() || 1)
     howlRef.current.seek(time)
     setCurrentTime(time)
   }
@@ -138,12 +152,26 @@ function Reader() {
     }
   }
 
+  const goNextChapter = () => {
+    navigate(`/book/${bookId}/chapter/${chapterNum + 1}`)
+  }
+
+  const goPrevChapter = () => {
+    if (chapterNum > 1) {
+      navigate(`/book/${bookId}/chapter/${chapterNum - 1}`)
+    }
+  }
+
   // Update progress bar
   useEffect(() => {
     if (!playing || !howlRef.current) return
     const interval = setInterval(() => {
-      const time = howlRef.current?.seek()
-      if (typeof time === 'number') setCurrentTime(time)
+      try {
+        const time = howlRef.current?.seek()
+        if (typeof time === 'number') setCurrentTime(time)
+      } catch (e) {
+        // Howl may be unloaded
+      }
     }, 200)
     return () => clearInterval(interval)
   }, [playing, setCurrentTime])
@@ -152,9 +180,13 @@ function Reader() {
   useEffect(() => {
     if (!playing || !howlRef.current) return
     const interval = setInterval(() => {
-      const time = howlRef.current?.seek()
-      if (typeof time === 'number') {
-        api.saveBookmark(bookId, chapterNum, time).catch(() => {})
+      try {
+        const time = howlRef.current?.seek()
+        if (typeof time === 'number') {
+          api.saveBookmark(bookId, chapterNum, time).catch(() => {})
+        }
+      } catch (e) {
+        // Howl may be unloaded
       }
     }, 15000)
     return () => clearInterval(interval)
@@ -167,7 +199,7 @@ function Reader() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const isCurrentChapter = playingBookId === bookId && playingChapterId === chapterNum
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
   if (loading) {
     return (
@@ -178,7 +210,7 @@ function Reader() {
   }
 
   return (
-    <div style={{ paddingBottom: '1rem' }}>
+    <div style={{ paddingBottom: audioReady ? '8rem' : '1rem' }}>
       <header className="header">
         <button className="back-btn" onClick={() => navigate(`/book/${bookId}`)}>&#8592;</button>
         <h1 style={{ flex: 1, marginLeft: '0.5rem', fontSize: '1rem' }}>
@@ -230,7 +262,7 @@ function Reader() {
           {chapterNum > 1 && (
             <button
               className="btn btn-secondary"
-              onClick={() => navigate(`/book/${bookId}/chapter/${chapterNum - 1}`)}
+              onClick={goPrevChapter}
             >
               &#8592; Previous
             </button>
@@ -242,41 +274,92 @@ function Reader() {
           >
             Back to Book
           </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={goNextChapter}
+          >
+            Next &#8594;
+          </button>
         </div>
       </main>
 
-      {/* Inline Player */}
-      {howlRef.current && (
+      {/* Inline Player - uses audioReady state instead of ref check */}
+      {audioReady && (
         <div style={{
           position: 'fixed',
-          bottom: 80,
+          bottom: 60,
           left: 0,
           right: 0,
-          background: 'var(--bg-light)',
+          background: 'var(--bg-light, #1a1a2e)',
           padding: '0.75rem 1rem',
           display: 'flex',
           alignItems: 'center',
           gap: '0.75rem',
-          borderTop: '1px solid var(--surface)'
+          borderTop: '1px solid var(--surface, #333)',
+          zIndex: 100
         }}>
-          <button className="play-btn" onClick={togglePlay}>
+          <button className="play-btn" onClick={togglePlay} style={{
+            background: 'var(--primary, #e94560)',
+            border: 'none',
+            color: '#fff',
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            fontSize: '1.1rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
             {playing ? '\u23F8' : '\u25B6'}
           </button>
-          <div
-            ref={progressRef}
-            className="progress-bar"
-            style={{ flex: 1 }}
-            onClick={handleSeek}
-          >
+
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div
-              className="progress-fill"
-              style={{ width: `${useStore.getState().duration ? (useStore.getState().currentTime / useStore.getState().duration) * 100 : 0}%` }}
-            />
+              ref={progressRef}
+              onClick={handleSeek}
+              style={{
+                height: 6,
+                background: 'var(--surface, #333)',
+                borderRadius: 3,
+                cursor: 'pointer',
+                position: 'relative'
+              }}
+            >
+              <div style={{
+                height: '100%',
+                background: 'var(--primary, #e94560)',
+                borderRadius: 3,
+                width: `${progress}%`,
+                transition: 'width 0.1s linear'
+              }} />
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '0.7rem',
+              color: 'var(--text-dim, #888)',
+              marginTop: 2
+            }}>
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
           </div>
+
           <select
-            className="speed-select"
             value={playbackSpeed}
             onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+            style={{
+              background: 'var(--surface, #333)',
+              color: 'var(--text, #eee)',
+              border: 'none',
+              borderRadius: 4,
+              padding: '0.25rem',
+              fontSize: '0.8rem',
+              flexShrink: 0
+            }}
           >
             <option value="0.75">0.75x</option>
             <option value="1">1x</option>
