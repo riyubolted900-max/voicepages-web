@@ -108,6 +108,10 @@ export const useStore = create((set, get) => ({
     })
   },
 
+  // Player UI
+  playerExpanded: false,
+  setPlayerExpanded: (expanded) => set({ playerExpanded: expanded }),
+
   // Loading
   loading: false,
   setLoading: (loading) => set({ loading }),

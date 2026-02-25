@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { api } from '../services/api'
@@ -11,152 +11,120 @@ function Settings() {
   const [testResult, setTestResult] = useState(null)
 
   const handleSave = () => {
-    setServerUrl(url)
+    setServerUrl(url.trim())
     navigate('/')
   }
 
   const testConnection = async () => {
     setTesting(true)
     setTestResult(null)
-
-    // Test the URL without permanently changing the api serverUrl
-    const oldUrl = api.getServerUrl()
-    api.setServerUrl(url)
-
+    const old = api.getServerUrl()
+    api.setServerUrl(url.trim())
     try {
       await api.healthCheck()
-      setTestResult({ success: true, message: 'Connected!' })
-    } catch (err) {
-      setTestResult({ success: false, message: err.message })
+      setTestResult({ ok: true, msg: 'Connected ✓' })
+    } catch (e) {
+      setTestResult({ ok: false, msg: e.message || 'Connection failed' })
     } finally {
-      // Restore old URL (save will set it permanently)
-      api.setServerUrl(oldUrl)
+      api.setServerUrl(old)
       setTesting(false)
     }
   }
 
   return (
-    <div>
+    <div className="page">
       <header className="header">
-        <button className="back-btn" onClick={() => navigate('/')}>&#8592;</button>
-        <h1 style={{ flex: 1, marginLeft: '0.5rem' }}>Setup</h1>
+        <button className="back-btn" onClick={() => navigate('/')}>‹ Library</button>
+        <span className="header-title">Settings</span>
+        <div style={{ width: 60 }} />
       </header>
 
-      <main>
-        {/* Quick Setup */}
-        <div className="card" style={{ background: 'linear-gradient(135deg, var(--surface), var(--bg-light))' }}>
-          <h3 style={{ marginBottom: '1rem' }}>Quick Connect</h3>
+      <div className="header-large">Settings</div>
+      <div className="spacer-sm" />
 
-          <div className="settings-section">
-            <div className="settings-label">Server URL</div>
+      {/* Server */}
+      <div className="settings-group">
+        <div className="settings-group-title">Server</div>
+        <div className="settings-list">
+          <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+            <div className="settings-row-label">Server URL</div>
             <input
               type="text"
               className="settings-input"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="http://192.168.1.x:9000"
+              onChange={e => setUrl(e.target.value)}
+              placeholder="http://192.168.x.x:9000"
+              onKeyDown={e => e.key === 'Enter' && handleSave()}
             />
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={testConnection}
-              disabled={testing}
-              style={{ flex: 1 }}
-            >
-              {testing ? 'Testing...' : 'Test'}
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleSave}
-              style={{ flex: 1 }}
-            >
-              Save & Go
-            </button>
-          </div>
-
-          {testResult && (
-            <div style={{
-              marginTop: '1rem',
-              padding: '0.75rem',
-              borderRadius: 8,
-              background: testResult.success ? 'rgba(0, 184, 148, 0.2)' : 'rgba(231, 76, 60, 0.2)',
-              color: testResult.success ? 'var(--success)' : 'var(--danger)',
-              textAlign: 'center'
-            }}>
-              {testResult.message}
+            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+              <button
+                className="btn-secondary"
+                onClick={testConnection}
+                disabled={testing}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                {testing ? '...' : 'Test'}
+              </button>
+              <button className="btn-primary" onClick={handleSave} style={{ flex: 1, justifyContent: 'center' }}>
+                Save
+              </button>
             </div>
-          )}
-        </div>
-
-        {/* Setup Guide */}
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>Setup Guide</h3>
-
-          <div style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
-            <details style={{ marginBottom: '0.75rem' }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>1. Run server on Mac</summary>
-              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
-                Open Terminal and run:<br/>
-                <code style={{ background: 'var(--bg)', padding: '0.2rem 0.4rem', borderRadius: 4, fontSize: '0.8rem' }}>
-                  cd voicepages-server && python -m uvicorn main:app --host 0.0.0.0 --port 9000
-                </code>
+            {testResult && (
+              <div style={{
+                width: '100%', padding: '10px 14px', borderRadius: 'var(--r-sm)',
+                background: testResult.ok ? 'rgba(48,209,88,0.12)' : 'rgba(255,55,95,0.12)',
+                color: testResult.ok ? 'var(--success)' : 'var(--danger)',
+                fontSize: '0.88rem', fontWeight: 600,
+              }}>
+                {testResult.msg}
               </div>
-            </details>
-
-            <details style={{ marginBottom: '0.75rem' }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>2. Find Mac's IP address</summary>
-              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
-                In Terminal run: <code style={{ background: 'var(--bg)', padding: '0.2rem 0.4rem', borderRadius: 4, fontSize: '0.8rem' }}>
-                  ipconfig getifaddr en0
-                </code><br/>
-                Result looks like: 192.168.1.xxx
-              </div>
-            </details>
-
-            <details style={{ marginBottom: '0.75rem' }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>3. Open on phone</summary>
-              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
-                Safari: http://YOUR_IP:9000<br/>
-                Then tap Share &rarr; Add to Home Screen
-              </div>
-            </details>
-
-            <details>
-              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>4. Enter Server URL above</summary>
-              <div style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
-                Enter: http://YOUR_IP:9000 and tap "Test"
-              </div>
-            </details>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Troubleshooting */}
-        <div className="card">
-          <h3 style={{ marginBottom: '0.5rem' }}>Troubleshooting</h3>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            <p style={{ marginBottom: '0.5rem' }}>
-              <strong>Can't connect?</strong><br/>
-              &bull; Make sure Mac and phone on same WiFi<br/>
-              &bull; Check firewall allows port 9000
-            </p>
-            <p>
-              <strong>No audio?</strong><br/>
-              &bull; macOS Speech works by default<br/>
-              &bull; For better quality, start Kokoro TTS
-            </p>
+      {/* Setup Guide */}
+      <div className="settings-group">
+        <div className="settings-group-title">Setup Guide</div>
+        <div className="settings-list">
+          {[
+            { step: '1', title: 'Start the server on Mac', sub: 'cd voicepages-server && python -m uvicorn main:app --host 0.0.0.0 --port 9000' },
+            { step: '2', title: 'Find your Mac IP', sub: 'System Settings → Network, or run: ipconfig getifaddr en0' },
+            { step: '3', title: 'Enter IP above', sub: 'Format: http://192.168.x.x:9000' },
+          ].map(({ step, title, sub }) => (
+            <div key={step} className="settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.7rem', fontWeight: 700, flexShrink: 0,
+                }}>{step}</div>
+                <div className="settings-row-label">{title}</div>
+              </div>
+              <div style={{ paddingLeft: 30, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                <code>{sub}</code>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* About */}
+      <div className="settings-group">
+        <div className="settings-group-title">About</div>
+        <div className="settings-list">
+          <div className="settings-row">
+            <div className="settings-row-label">VoicePages</div>
+            <div className="settings-row-value">Multi-Voice Audiobook</div>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-label">TTS Engine</div>
+            <div className="settings-row-value">macOS + Kokoro</div>
           </div>
         </div>
+      </div>
 
-        {/* About */}
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 600 }}>VoicePages</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            AI-Powered Multi-Voice Audiobook
-          </div>
-        </div>
-      </main>
+      <div className="spacer-lg" />
     </div>
   )
 }
