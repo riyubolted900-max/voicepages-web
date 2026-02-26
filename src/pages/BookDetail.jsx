@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { api } from '../services/api'
@@ -13,6 +13,19 @@ function BookDetail() {
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(true)
   const [showVoices, setShowVoices] = useState(null)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowVoices(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     loadBookData()
@@ -121,7 +134,7 @@ function BookDetail() {
             <h3 style={{ marginBottom: '0.75rem' }}>Characters</h3>
             <div className="character-list">
               {characters.map((char) => (
-                <div key={char.id} className="character-item" style={{ position: 'relative' }}>
+                <div key={char.id} className="character-item" style={{ position: 'relative' }} ref={dropdownRef}>
                   <div className="character-avatar">
                     {char.name[0].toUpperCase()}
                   </div>

@@ -229,14 +229,39 @@ function Reader() {
 
         {generating && (
           <div style={{
-            padding: '1rem',
-            background: 'var(--surface)',
-            borderRadius: 8,
-            marginBottom: '1rem',
-            textAlign: 'center'
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            color: 'var(--text, #fff)',
           }}>
-            <div className="spinner" style={{ margin: '0 auto 0.5rem' }}></div>
-            Generating audio...
+            <div className="spinner" style={{ 
+              width: 48, 
+              height: 48, 
+              border: '4px solid var(--surface)',
+              borderTopColor: 'var(--primary)',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              marginBottom: '1rem'
+            }}></div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+              Generating Audio...
+            </div>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted, #aaa)' }}>
+              This may take a moment
+            </div>
+            <style>{`
+              @keyframes spin {
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
           </div>
         )}
 
