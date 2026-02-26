@@ -10,7 +10,7 @@ function PlayerBar() {
     playing, setPlaying,
     currentTime, setCurrentTime,
     duration, setDuration,
-    playbackSpeed,
+    playbackSpeed, volume,
     playingBookId, playingChapterId, playingChapterTitle,
     clearPlayingContext
   } = useStore()
@@ -50,6 +50,7 @@ function PlayerBar() {
             format: ['wav'],
             html5: true,
             rate: playbackSpeed,
+            volume: volume,
             onplay: () => setPlaying(true),
             onpause: () => setPlaying(false),
             onstop: () => setPlaying(false),
