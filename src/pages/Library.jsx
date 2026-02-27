@@ -10,6 +10,7 @@ function Library() {
   const { books, loadBooks } = useStore()
   const [uploading, setUploading] = useState(false)
   const [connected, setConnected] = useState(null)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   useEffect(() => { checkConnection() }, [])
 
@@ -49,7 +50,19 @@ function Library() {
       <div className="sp-sm" />
 
       {/* Upload */}
-      <div className="upload-zone" onClick={() => document.getElementById('vpFile').click()}>
+      <div
+        className="upload-zone"
+        onClick={() => document.getElementById('vpFile').click()}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setIsDragOver(false)
+          const file = e.dataTransfer.files[0]
+          if (file) handleFileSelect({ target: { files: [file] } })
+        }}
+        style={isDragOver ? { borderColor: 'var(--primary)', background: 'rgba(233,69,96,0.08)' } : undefined}
+      >
         {uploading ? (
           <>
             <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>

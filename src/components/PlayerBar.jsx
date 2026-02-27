@@ -19,7 +19,7 @@ function PlayerBar() {
   const progressRef = useRef(null)
   const objectUrlRef = useRef(null)
 
-  // Update progress — this hook MUST always run (no early returns before hooks!)
+  // Update progress — ALL hooks must be declared before any early return
   useEffect(() => {
     if (!playing || !howlRef.current) return
     const interval = setInterval(() => {
@@ -29,7 +29,21 @@ function PlayerBar() {
     return () => clearInterval(interval)
   }, [playing, setCurrentTime])
 
-  // If no chapter is playing, don't render — AFTER all hooks
+  // Watch volume changes and apply to active Howl
+  useEffect(() => {
+    if (howlRef.current) {
+      howlRef.current.volume(volume)
+    }
+  }, [volume])
+
+  // Watch playback speed changes and apply to active Howl
+  useEffect(() => {
+    if (howlRef.current) {
+      howlRef.current.rate(playbackSpeed)
+    }
+  }, [playbackSpeed])
+
+  // Early return AFTER all hooks — never before
   if (!playingBookId || playingChapterId == null) {
     return null
   }

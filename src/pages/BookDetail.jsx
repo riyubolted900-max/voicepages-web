@@ -13,6 +13,7 @@ function BookDetail() {
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(true)
   const [showVoices, setShowVoices] = useState(null)
+  const [voiceError, setVoiceError] = useState(null)
   const dropdownRef = useRef(null)
 
   // Close dropdown when clicking outside
@@ -51,16 +52,26 @@ function BookDetail() {
     }
   }
 
-  const handleVoiceChange = async (charName, voiceId) => {
+  const handleVoiceChange = async (charName, newVoiceId) => {
+    // Save previous voice for rollback on failure
+    const prevVoiceId = characters.find(c => c.name === charName)?.voice_id
+
+    // Optimistic update
+    setCharacters(prev =>
+      prev.map(c => c.name === charName ? { ...c, voice_id: newVoiceId } : c)
+    )
+    setShowVoices(null)
+
     try {
-      await api.updateCharacterVoice(bookId, charName, voiceId)
-      // Optimistically update local state
-      setCharacters(prev =>
-        prev.map(c => c.name === charName ? { ...c, voice_id: voiceId } : c)
-      )
-      setShowVoices(null)
+      await api.updateCharacterVoice(bookId, charName, newVoiceId)
     } catch (err) {
-      alert(`Failed to update voice: ${err.message}`)
+      // Revert on failure
+      setCharacters(prev =>
+        prev.map(c => c.name === charName ? { ...c, voice_id: prevVoiceId } : c)
+      )
+      setVoiceError(`Failed to update voice: ${err.message}`)
+      // Clear the error after 4 seconds
+      setTimeout(() => setVoiceError(null), 4000)
     }
   }
 
@@ -132,6 +143,19 @@ function BookDetail() {
         {characters.length > 0 && (
           <div className="card">
             <h3 style={{ marginBottom: '0.75rem' }}>Characters</h3>
+            {voiceError && (
+              <div style={{
+                padding: '0.5rem 0.75rem',
+                marginBottom: '0.75rem',
+                background: 'rgba(231, 76, 60, 0.2)',
+                border: '1px solid rgba(231, 76, 60, 0.4)',
+                borderRadius: 6,
+                fontSize: '0.85rem',
+                color: 'var(--text, #eee)'
+              }}>
+                {voiceError}
+              </div>
+            )}
             <div className="character-list">
               {characters.map((char) => (
                 <div key={char.id} className="character-item" style={{ position: 'relative' }} ref={dropdownRef}>
