@@ -14,14 +14,17 @@ function Settings() {
   const [url, setUrl] = useState(serverUrl)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
+  const [theme, setTheme] = useState(() => localStorage.getItem('vp-theme') || 'dark')
   const [autoBookmark, setAutoBookmark] = useState(() => {
     return localStorage.getItem('autoBookmark') !== 'false'
   })
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('theme', theme)
+    // Match App.jsx behaviour: remove data-theme for dark, set 'light' for light
+    theme === 'light'
+      ? document.documentElement.setAttribute('data-theme', 'light')
+      : document.documentElement.removeAttribute('data-theme')
+    localStorage.setItem('vp-theme', theme)
   }, [theme])
 
   useEffect(() => {
