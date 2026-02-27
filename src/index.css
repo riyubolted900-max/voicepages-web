@@ -649,3 +649,177 @@ code{background:var(--chip);padding:2px 6px;border-radius:4px;font-size:0.8rem;f
   .tab-bar{max-width:640px;left:50%;transform:translateX(-50%);right:auto}
   .book-grid{grid-template-columns:repeat(3,1fr)}
 }
+
+/* ======================================================================
+   MOBILE OPTIMIZATION — iPhone 16 Pro / Samsung S24 Ultra
+   ====================================================================== */
+
+/* Mobile viewport fixes */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    height: -webkit-fill-available;
+  }
+}
+
+/* iPhone 16 Pro: 393x852 viewport */
+@media screen and (width: 393px) and (height: 852px) {
+  .header { padding: 13px 16px; }
+  .header-title { font-size: 0.95rem; }
+  .header-large { font-size: 1.75rem; padding: 8px 16px; }
+  
+  .main-content { padding-bottom: 140px; }
+  
+  .hero-title { font-size: 1.35rem; }
+  .hero-cover { max-width: 180px; }
+  
+  .book-grid { gap: 12px; }
+  .book-grid-cover { border-radius: 14px; }
+  .book-grid-title { font-size: 0.84rem; }
+  
+  .list-row { padding: 14px 14px; }
+  .row-title { font-size: 0.88rem; }
+  
+  .btn-primary { padding: 13px 24px; font-size: 0.92rem; }
+  .btn-secondary { padding: 12px 20px; }
+  
+  .sheet { max-height: 90vh; }
+  .sheet-scroll { padding-bottom: 32px; }
+  
+  .vchip { min-width: 68px; padding: 12px 8px 10px; }
+  .vchip-avatar { width: 38px; height: 38px; }
+  
+  .tab-bar { height: calc(54px + env(safe-area-inset-bottom)); }
+  .mini-player { padding: 10px 14px calc(54px + env(safe-area-inset-bottom) + 10px); }
+  
+  .fp-content { padding: 0 24px calc(28px + env(safe-area-inset-bottom)); }
+  .fp-cover { width: 260px; }
+  .fp-title { font-size: 1.3rem; }
+  .ctrl-play { width: 72px; height: 72px; }
+  
+  .reader-text { padding: 16px 18px; font-size: 1rem; }
+}
+
+/* Samsung S24 Ultra: 412x915 viewport */
+@media screen and (width: 412px) and (height: 915px) {
+  .header { padding: 14px 18px; }
+  .header-title { font-size: 1rem; }
+  .header-large { font-size: 1.85rem; }
+  
+  .main-content { padding-bottom: 145px; }
+  
+  .hero-title { font-size: 1.4rem; }
+  .hero-cover { max-width: 190px; }
+  
+  .book-grid { gap: 14px; }
+  .book-grid-cover { border-radius: 16px; }
+  .book-grid-title { font-size: 0.86rem; }
+  
+  .list-row { padding: 15px 16px; }
+  .row-title { font-size: 0.9rem; }
+  
+  .btn-primary { padding: 14px 26px; font-size: 0.94rem; }
+  .btn-secondary { padding: 13px 22px; }
+  
+  .sheet { max-height: 92vh; }
+  .sheet-scroll { padding-bottom: 36px; }
+  
+  .vchip { min-width: 72px; padding: 13px 10px 11px; }
+  .vchip-avatar { width: 40px; height: 40px; }
+  
+  .tab-bar { height: calc(56px + env(safe-area-inset-bottom)); }
+  .mini-player { padding: 10px 16px calc(56px + env(safe-area-inset-bottom) + 10px); }
+  
+  .fp-content { padding: 0 26px calc(30px + env(safe-area-inset-bottom)); }
+  .fp-cover { width: 275px; }
+  .fp-title { font-size: 1.35rem; }
+  .ctrl-play { width: 74px; height: 74px; }
+  
+  .reader-text { padding: 18px 20px; font-size: 1.02rem; }
+}
+
+/* Dynamic Island / Notch safe area handling */
+@supports (padding: max(0px)) {
+  .header {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  
+  .fp-content {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+  
+  .sheet {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+}
+
+/* Touch-friendly minimum tap targets (44px minimum for WCAG) */
+.tab-item { min-height: 44px; }
+.btn-icon { min-width: 44px; min-height: 44px; }
+.mini-btn { min-width: 44px; min-height: 44px; }
+.ctrl-btn { min-width: 44px; min-height: 44px; }
+.list-row { min-height: 52px; }
+.sheet-done { min-width: 44px; min-height: 44px; }
+
+/* Prevent horizontal overflow on mobile */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Smooth scrolling for mobile */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Active state improvements for touch */
+@media (hover: none) and (pointer: coarse) {
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .vchip:hover {
+    opacity: 1;
+  }
+  
+  .list-row:active {
+    background: var(--bg-secondary);
+  }
+  
+  .book-grid-item:active {
+    transform: scale(0.96);
+  }
+}
+
+/* PWA standalone mode */
+@media (display-mode: standalone) {
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .tab-bar {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Improve audio scrubbing on mobile */
+.scrubber {
+  height: 6px;
+}
+
+.scrubber:active {
+  height: 8px;
+}
+
+.scrubber-thumb {
+  width: 18px;
+  height: 18px;
+}
+
+/* Volume / speed controls more touch-friendly */
+.speed-pill {
+  min-width: 48px;
+  min-height: 36px;
+  padding: 8px 14px;
+}
