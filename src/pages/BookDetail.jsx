@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { api } from '../services/api'
+import VoiceConfigSheet from '../components/VoiceConfigSheet'
 
 function BookDetail() {
   const { bookId } = useParams()
@@ -12,21 +13,8 @@ function BookDetail() {
   const [chapters, setChapters] = useState([])
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showVoices, setShowVoices] = useState(null)
+  const [showVoiceSheet, setShowVoiceSheet] = useState(false)
   const [voiceError, setVoiceError] = useState(null)
-  const dropdownRef = useRef(null)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowVoices(null)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   useEffect(() => {
     loadBookData()
@@ -60,7 +48,6 @@ function BookDetail() {
     setCharacters(prev =>
       prev.map(c => c.name === charName ? { ...c, voice_id: newVoiceId } : c)
     )
-    setShowVoices(null)
 
     try {
       await api.updateCharacterVoice(bookId, charName, newVoiceId)
@@ -142,7 +129,12 @@ function BookDetail() {
         {/* Characters */}
         {characters.length > 0 && (
           <div className="card">
-            <h3 style={{ marginBottom: '0.75rem' }}>Characters</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <h3>Characters</h3>
+              <button onClick={() => setShowVoiceSheet(true)} className="btn btn-secondary">
+                Cast Voices
+              </button>
+            </div>
             {voiceError && (
               <div style={{
                 padding: '0.5rem 0.75rem',
@@ -158,7 +150,7 @@ function BookDetail() {
             )}
             <div className="character-list">
               {characters.map((char) => (
-                <div key={char.id} className="character-item" style={{ position: 'relative' }} ref={dropdownRef}>
+                <div key={char.id} className="character-item">
                   <div className="character-avatar">
                     {char.name[0].toUpperCase()}
                   </div>
@@ -169,42 +161,9 @@ function BookDetail() {
                     </div>
                     <div className="character-gender">{char.gender}</div>
                   </div>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setShowVoices(showVoices === char.name ? null : char.name)}
-                  >
-                    {voiceList.find(v => v.id === char.voice_id)?.name || char.voice_id || 'Select'} &#9660;
-                  </button>
-
-                  {/* Voice selector dropdown */}
-                  {showVoices === char.name && (
-                    <div style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '100%',
-                      marginTop: 4,
-                      background: 'var(--bg-light)',
-                      border: '1px solid var(--surface)',
-                      borderRadius: 8,
-                      padding: '0.5rem',
-                      zIndex: 10,
-                      maxHeight: 200,
-                      overflow: 'auto',
-                      width: 200,
-                    }}>
-                      {voiceList.map((voice) => (
-                        <div
-                          key={voice.id}
-                          className={`voice-option ${char.voice_id === voice.id ? 'selected' : ''}`}
-                          onClick={() => handleVoiceChange(char.name, voice.id)}
-                          style={{ marginBottom: '0.25rem' }}
-                        >
-                          <div className="voice-name">{voice.name}</div>
-                          <div className="voice-meta">{voice.gender} &bull; {voice.accent}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {voiceList.find(v => v.id === char.voice_id)?.name || char.voice_id || '—'}
+                  </div>
                 </div>
               ))}
             </div>
@@ -228,6 +187,15 @@ function BookDetail() {
           </div>
         </div>
       </main>
+
+      {showVoiceSheet && (
+        <VoiceConfigSheet
+          characters={characters}
+          voices={voiceList}
+          onVoiceChange={handleVoiceChange}
+          onClose={() => setShowVoiceSheet(false)}
+        />
+      )}
     </div>
   )
 }

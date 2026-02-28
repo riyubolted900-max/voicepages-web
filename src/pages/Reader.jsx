@@ -22,6 +22,8 @@ function Reader() {
   const [error, setError] = useState(null)
   const [audioReady, setAudioReady] = useState(false)
 
+  const autoBookmark = localStorage.getItem('autoBookmark') !== 'false'
+
   const howlRef = useRef(null)
   const progressRef = useRef(null)
   const objectUrlRef = useRef(null)
@@ -148,7 +150,7 @@ function Reader() {
         howlRef.current.pause()
         // Save bookmark on pause
         const pos = howlRef.current.seek()
-        if (typeof pos === 'number') {
+        if (typeof pos === 'number' && autoBookmark) {
           api.saveBookmark(bookId, chapterNum, pos).catch(() => {})
         }
       } else {
@@ -205,7 +207,7 @@ function Reader() {
     const interval = setInterval(() => {
       try {
         const time = howlRef.current?.seek()
-        if (typeof time === 'number') {
+        if (typeof time === 'number' && autoBookmark) {
           api.saveBookmark(bookId, chapterNum, time).catch(() => {})
         }
       } catch (e) {

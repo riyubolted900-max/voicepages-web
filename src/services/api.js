@@ -20,30 +20,42 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.serverUrl}${endpoint}`
-    const config = { headers: {}, ...options }
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-    // Auto-JSON-stringify body objects (but not FormData)
-    if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
-      config.headers['Content-Type'] = 'application/json'
-      config.body = JSON.stringify(options.body)
-    }
+    try {
+      const url = `${this.serverUrl}${endpoint}`
+      const config = { headers: {}, ...options, signal: controller.signal }
 
-    const response = await fetch(url, config)
+      // Auto-JSON-stringify body objects (but not FormData)
+      if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+        config.headers['Content-Type'] = 'application/json'
+        config.body = JSON.stringify(options.body)
+      }
 
-    if (!response.ok) {
-      const error = await response.text().catch(() => `HTTP ${response.status}`)
-      throw new Error(error || `HTTP ${response.status}`)
-    }
+      const response = await fetch(url, config)
 
-    const contentType = response.headers.get('content-type')
-    if (contentType?.includes('application/json')) {
-      return response.json()
+      if (!response.ok) {
+        const error = await response.text().catch(() => `HTTP ${response.status}`)
+        throw new Error(error || `HTTP ${response.status}`)
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (contentType?.includes('application/json')) {
+        return response.json()
+      }
+      if (contentType?.includes('audio/')) {
+        return response.blob()
+      }
+      return response.text()
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out after 30 seconds')
+      }
+      throw err
+    } finally {
+      clearTimeout(timeoutId)
     }
-    if (contentType?.includes('audio/')) {
-      return response.blob()
-    }
-    return response.text()
   }
 
   // Health check
