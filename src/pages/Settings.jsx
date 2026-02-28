@@ -294,8 +294,8 @@ function Settings() {
             </p>
             <p>
               <strong>No audio?</strong><br/>
-              • macOS Speech works by default<br/>
-              • For better quality, start Kokoro TTS
+              • Kokoro TTS is required — download <code>kokoro-v1.0.onnx</code> and <code>voices-v1.0.bin</code> into the server's <code>storage/</code> folder<br/>
+              • Check server logs for "Kokoro TTS not available" errors
             </p>
           </div>
         </div>
