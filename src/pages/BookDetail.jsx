@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { api } from '../services/api'
+import VoiceConfigSheet from '../components/VoiceConfigSheet'
 
 function BookDetail() {
   const { bookId } = useParams()
@@ -12,20 +13,9 @@ function BookDetail() {
   const [chapters, setChapters] = useState([])
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showVoices, setShowVoices] = useState(null)
-  const dropdownRef = useRef(null)
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowVoices(null)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const [showVoiceSheet, setShowVoiceSheet] = useState(false)
+  const [voiceError, setVoiceError] = useState(null)
+  const [selectedChar, setSelectedChar] = useState(null)
 
   useEffect(() => {
     loadBookData()
@@ -51,16 +41,27 @@ function BookDetail() {
     }
   }
 
-  const handleVoiceChange = async (charName, voiceId) => {
+  const handleVoiceChange = async (charName, newVoiceId) => {
+    // Save previous voice for rollback on failure
+    const prevVoiceId = characters.find(c => c.name === charName)?.voice_id
+
+    setSelectedChar(null)
+
+    // Optimistic update
+    setCharacters(prev =>
+      prev.map(c => c.name === charName ? { ...c, voice_id: newVoiceId } : c)
+    )
+
     try {
-      await api.updateCharacterVoice(bookId, charName, voiceId)
-      // Optimistically update local state
-      setCharacters(prev =>
-        prev.map(c => c.name === charName ? { ...c, voice_id: voiceId } : c)
-      )
-      setShowVoices(null)
+      await api.updateCharacterVoice(bookId, charName, newVoiceId)
     } catch (err) {
-      alert(`Failed to update voice: ${err.message}`)
+      // Revert on failure
+      setCharacters(prev =>
+        prev.map(c => c.name === charName ? { ...c, voice_id: prevVoiceId } : c)
+      )
+      setVoiceError(`Failed to update voice: ${err.message}`)
+      // Clear the error after 4 seconds
+      setTimeout(() => setVoiceError(null), 4000)
     }
   }
 
@@ -131,10 +132,28 @@ function BookDetail() {
         {/* Characters */}
         {characters.length > 0 && (
           <div className="card">
-            <h3 style={{ marginBottom: '0.75rem' }}>Characters</h3>
-            <div className="character-list">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <h3>Characters</h3>
+              <button onClick={() => setShowVoiceSheet(true)} className="btn btn-secondary">
+                Cast Voices
+              </button>
+            </div>
+            {voiceError && (
+              <div style={{
+                padding: '0.5rem 0.75rem',
+                marginBottom: '0.75rem',
+                background: 'rgba(231, 76, 60, 0.2)',
+                border: '1px solid rgba(231, 76, 60, 0.4)',
+                borderRadius: 6,
+                fontSize: '0.85rem',
+                color: 'var(--text, #eee)'
+              }}>
+                {voiceError}
+              </div>
+            )}
+            <div className="character-list" onClick={() => setSelectedChar(null)}>
               {characters.map((char) => (
-                <div key={char.id} className="character-item" style={{ position: 'relative' }} ref={dropdownRef}>
+                <div key={char.id} className="character-item" style={{ position: 'relative' }}>
                   <div className="character-avatar">
                     {char.name[0].toUpperCase()}
                   </div>
@@ -147,36 +166,34 @@ function BookDetail() {
                   </div>
                   <button
                     className="btn btn-secondary"
-                    onClick={() => setShowVoices(showVoices === char.name ? null : char.name)}
+                    style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedChar(selectedChar === char.name ? null : char.name) }}
                   >
-                    {voiceList.find(v => v.id === char.voice_id)?.name || char.voice_id || 'Select'} &#9660;
+                    {voiceList.find(v => v.id === char.voice_id)?.name || char.voice_id || 'Select'} ▼
                   </button>
-
-                  {/* Voice selector dropdown */}
-                  {showVoices === char.name && (
-                    <div style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '100%',
-                      marginTop: 4,
-                      background: 'var(--bg-light)',
-                      border: '1px solid var(--surface)',
-                      borderRadius: 8,
-                      padding: '0.5rem',
-                      zIndex: 10,
-                      maxHeight: 200,
-                      overflow: 'auto',
-                      width: 200,
-                    }}>
-                      {voiceList.map((voice) => (
+                  {selectedChar === char.name && (
+                    <div
+                      style={{
+                        position: 'absolute', right: 0, bottom: '100%', marginBottom: 4,
+                        background: 'var(--bg-light, #1a1a2e)', border: '1px solid var(--surface)',
+                        borderRadius: 8, padding: '0.5rem', zIndex: 100,
+                        maxHeight: 200, overflowY: 'auto', width: 200,
+                        boxShadow: '0 -4px 16px rgba(0,0,0,0.4)'
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {voiceList.map(voice => (
                         <div
                           key={voice.id}
-                          className={`voice-option ${char.voice_id === voice.id ? 'selected' : ''}`}
                           onClick={() => handleVoiceChange(char.name, voice.id)}
-                          style={{ marginBottom: '0.25rem' }}
+                          style={{
+                            padding: '0.4rem 0.5rem', borderRadius: 6, cursor: 'pointer', marginBottom: 2,
+                            background: char.voice_id === voice.id ? 'var(--primary)' : 'transparent',
+                            color: char.voice_id === voice.id ? '#fff' : 'var(--text, #eee)'
+                          }}
                         >
-                          <div className="voice-name">{voice.name}</div>
-                          <div className="voice-meta">{voice.gender} &bull; {voice.accent}</div>
+                          <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{voice.name}</div>
+                          <div style={{ fontSize: '0.72rem', opacity: 0.7 }}>{voice.gender} · {voice.accent}</div>
                         </div>
                       ))}
                     </div>
@@ -204,6 +221,15 @@ function BookDetail() {
           </div>
         </div>
       </main>
+
+      {showVoiceSheet && (
+        <VoiceConfigSheet
+          characters={characters}
+          voices={voiceList}
+          onVoiceChange={handleVoiceChange}
+          onClose={() => setShowVoiceSheet(false)}
+        />
+      )}
     </div>
   )
 }

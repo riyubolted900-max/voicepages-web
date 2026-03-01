@@ -649,3 +649,353 @@ code{background:var(--chip);padding:2px 6px;border-radius:4px;font-size:0.8rem;f
   .tab-bar{max-width:640px;left:50%;transform:translateX(-50%);right:auto}
   .book-grid{grid-template-columns:repeat(3,1fr)}
 }
+
+/* ======================================================================
+   UI REDESIGN — Design Tokens (UI-1)
+   Additional aliases mapped to the existing design system
+   ====================================================================== */
+:root {
+  /* Aliases to match spec names while keeping existing vars intact */
+  --primary:       #6366f1;
+  --primary-dark:  #4f46e5;
+  --primary-light: #a5b4fc;
+  --surface:       #1e1e2e;
+  --surface-2:     #2a2a3e;
+  --surface-3:     #313145;
+  --text-muted:    rgba(255,255,255,0.55);
+  --text-faint:    rgba(255,255,255,0.28);
+  --border:        rgba(255,255,255,0.09);
+  --danger:        #f87171;
+  --success:       #34d399;
+  --warning:       #fbbf24;
+  --radius:        12px;
+  --radius-sm:     8px;
+  --radius-lg:     16px;
+  --shadow:        0 4px 24px rgba(0,0,0,0.4);
+  --transition:    0.2s ease;
+}
+
+/* ======================================================================
+   BUTTONS — comprehensive set (UI-2)
+   ====================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-lg { padding: 14px 28px; font-size: 16px; }
+
+/* ======================================================================
+   CARDS (UI-3)
+   ====================================================================== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--sep);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  margin: 12px 20px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+/* ======================================================================
+   PLAYER BAR (UI-4)
+   ====================================================================== */
+.player-bar {
+  position: fixed;
+  bottom: calc(49px + env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: var(--player-bg);
+  border-top: 1px solid var(--sep);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  z-index: 100;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.player-info {
+  flex: 1;
+  min-width: 0;
+}
+.player-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-chapter {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.player-progress {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.player-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.range-input {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--sep);
+  outline: none;
+  cursor: pointer;
+}
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+}
+.range-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+}
+.player-play-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.player-play-btn:hover { background: var(--primary-dark); transform: scale(1.05); }
+.player-play-btn:active { transform: scale(0.94); }
+.player-skip-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--chip);
+  border: none;
+  color: var(--text-2);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--t) var(--ease);
+}
+.player-skip-btn:hover { background: var(--chip-hover); color: var(--text); }
+.player-skip-btn:active { opacity: 0.5; transform: scale(0.88); }
+.player-stop-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--chip);
+  border: none;
+  color: var(--text-3);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--t) var(--ease);
+}
+.player-stop-btn:hover { background: rgba(248,113,113,0.15); color: var(--danger); }
+
+/* ======================================================================
+   PAGE LAYOUT (UI-5)
+   ====================================================================== */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Book grid — responsive 2→3→4 columns */
+.book-grid-new {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  padding: 0 20px;
+  margin-bottom: 24px;
+}
+@media(min-width:640px) {
+  .book-grid-new { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+}
+
+/* Individual book card (new style) */
+.book-card-new {
+  background: var(--bg-card);
+  border: 1px solid var(--sep);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--t-med) var(--ease);
+  display: block;
+  text-decoration: none;
+}
+.book-card-new:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.book-card-new:active { transform: scale(0.97); }
+
+.book-cover-new {
+  width: 100%;
+  aspect-ratio: 2/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  user-select: none;
+  transition: transform var(--t-med) var(--spring);
+}
+.book-card-new:hover .book-cover-new { transform: scale(1.03); }
+.book-cover-new img { width: 100%; height: 100%; object-fit: cover; }
+
+.book-card-body-new { padding: 10px 12px 12px; }
+.book-card-title-new {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.book-card-author-new {
+  font-size: 11px;
+  color: var(--text-3);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 6px;
+}
+.status-badge.ready      { background: rgba(52,211,153,0.15); color: var(--success); }
+.status-badge.processing { background: rgba(251,191,36,0.15);  color: var(--warning); }
+.status-badge.error      { background: rgba(248,113,113,0.15); color: var(--danger); }
+
+/* ======================================================================
+   INPUTS & FORMS (UI-6)
+   ====================================================================== */
+.input,
+.select,
+input[type="text"],
+input[type="number"] {
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color var(--transition);
+  font-family: inherit;
+}
+.input:focus,
+.select:focus,
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+}
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-bottom: 6px;
+  display: block;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+/* ======================================================================
+   UPLOAD ZONE (UI-7)
+   ====================================================================== */
+.upload-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(191,90,242,0.10);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+.upload-icon  { font-size: 32px; margin-bottom: 12px; }
+.upload-text  { font-size: 15px; color: var(--text);   font-weight: 500; }
+.upload-hint  { font-size: 13px; color: var(--text-3); margin-top: 4px; }

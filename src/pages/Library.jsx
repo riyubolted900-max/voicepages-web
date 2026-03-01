@@ -10,6 +10,7 @@ function Library() {
   const { books, loadBooks } = useStore()
   const [uploading, setUploading] = useState(false)
   const [connected, setConnected] = useState(null)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   useEffect(() => { checkConnection() }, [])
 
@@ -49,7 +50,18 @@ function Library() {
       <div className="sp-sm" />
 
       {/* Upload */}
-      <div className="upload-zone" onClick={() => document.getElementById('vpFile').click()}>
+      <div
+        className={`upload-zone${isDragOver ? ' drag-over' : ''}`}
+        onClick={() => document.getElementById('vpFile').click()}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setIsDragOver(false)
+          const file = e.dataTransfer.files[0]
+          if (file) handleFileSelect({ target: { files: [file] } })
+        }}
+      >
         {uploading ? (
           <>
             <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>
@@ -74,14 +86,19 @@ function Library() {
       {books.length > 0 && (
         <div className="library-section anim-fade-up">
           <div className="section-header">{books.length === 1 ? '1 Book' : `${books.length} Books`}</div>
-          <div className="book-grid">
+          <div className="book-grid-new">
             {books.map(book => (
-              <div key={book.id} className="book-grid-item" onClick={() => navigate(`/book/${book.id}`)}>
-                <div className="book-grid-cover" style={{ background: getCoverGradient(book.id) }}>
+              <div key={book.id} className="book-card-new" onClick={() => navigate(`/book/${book.id}`)}>
+                <div className="book-cover-new" style={{ background: getCoverGradient(book.id) }}>
                   {getInitials(book.title)}
                 </div>
-                <div className="book-grid-title">{book.title}</div>
-                <div className="book-grid-author">{book.author || 'Unknown'}</div>
+                <div className="book-card-body-new">
+                  <div className="book-card-title-new">{book.title}</div>
+                  <div className="book-card-author-new">{book.author || 'Unknown'}</div>
+                  {book.status && (
+                    <span className={`status-badge ${book.status}`}>{book.status}</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>

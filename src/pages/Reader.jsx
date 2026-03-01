@@ -12,7 +12,8 @@ function Reader() {
     setPlaying, playing,
     currentTime, setCurrentTime,
     duration, setDuration,
-    setPlaybackSpeed, playbackSpeed
+    setPlaybackSpeed, playbackSpeed,
+    volume
   } = useStore()
 
   const [chapter, setChapter] = useState(null)
@@ -20,6 +21,8 @@ function Reader() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
   const [audioReady, setAudioReady] = useState(false)
+
+  const autoBookmark = localStorage.getItem('autoBookmark') !== 'false'
 
   const howlRef = useRef(null)
   const progressRef = useRef(null)
@@ -77,6 +80,20 @@ function Reader() {
     }
   }, [bookId, chapterId])
 
+  // Watch volume changes and apply to active Howl
+  useEffect(() => {
+    if (howlRef.current) {
+      howlRef.current.volume(volume)
+    }
+  }, [volume])
+
+  // Watch playback speed changes and apply to active Howl
+  useEffect(() => {
+    if (howlRef.current) {
+      howlRef.current.rate(playbackSpeed)
+    }
+  }, [playbackSpeed])
+
   const setupAudioPlayer = (audioBlob, title) => {
     // Cleanup previous
     if (howlRef.current) {
@@ -94,6 +111,7 @@ function Reader() {
       format: ['wav'],
       html5: true,
       rate: playbackSpeed,
+      volume: volume,
       onplay: () => {
         setPlaying(true)
       },
@@ -102,9 +120,19 @@ function Reader() {
       onend: () => {
         setPlaying(false)
       },
-      onload: () => {
+      onload: async () => {
         setDuration(howl.duration())
         setAudioReady(true)
+        // Restore bookmark position if one exists for this chapter
+        try {
+          const bookmark = await api.getBookmark(bookId)
+          if (bookmark.chapter_id === Number(chapterId) && bookmark.position > 5) {
+            howl.seek(bookmark.position)
+            setCurrentTime(bookmark.position)
+          }
+        } catch (e) {
+          // ignore — start from beginning
+        }
       },
       onloaderror: (id, err) => {
         console.error('Audio load error:', err)
@@ -122,7 +150,7 @@ function Reader() {
         howlRef.current.pause()
         // Save bookmark on pause
         const pos = howlRef.current.seek()
-        if (typeof pos === 'number') {
+        if (typeof pos === 'number' && autoBookmark) {
           api.saveBookmark(bookId, chapterNum, pos).catch(() => {})
         }
       } else {
@@ -179,7 +207,7 @@ function Reader() {
     const interval = setInterval(() => {
       try {
         const time = howlRef.current?.seek()
-        if (typeof time === 'number') {
+        if (typeof time === 'number' && autoBookmark) {
           api.saveBookmark(bookId, chapterNum, time).catch(() => {})
         }
       } catch (e) {
@@ -242,9 +270,9 @@ function Reader() {
             zIndex: 1000,
             color: 'var(--text, #fff)',
           }}>
-            <div className="spinner" style={{ 
-              width: 48, 
-              height: 48, 
+            <div className="spinner" style={{
+              width: 48,
+              height: 48,
               border: '4px solid var(--surface)',
               borderTopColor: 'var(--primary)',
               borderRadius: '50%',
