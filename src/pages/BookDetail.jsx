@@ -15,6 +15,7 @@ function BookDetail() {
   const [loading, setLoading] = useState(true)
   const [showVoiceSheet, setShowVoiceSheet] = useState(false)
   const [voiceError, setVoiceError] = useState(null)
+  const [selectedChar, setSelectedChar] = useState(null)
 
   useEffect(() => {
     loadBookData()
@@ -43,6 +44,8 @@ function BookDetail() {
   const handleVoiceChange = async (charName, newVoiceId) => {
     // Save previous voice for rollback on failure
     const prevVoiceId = characters.find(c => c.name === charName)?.voice_id
+
+    setSelectedChar(null)
 
     // Optimistic update
     setCharacters(prev =>
@@ -148,9 +151,9 @@ function BookDetail() {
                 {voiceError}
               </div>
             )}
-            <div className="character-list">
+            <div className="character-list" onClick={() => setSelectedChar(null)}>
               {characters.map((char) => (
-                <div key={char.id} className="character-item">
+                <div key={char.id} className="character-item" style={{ position: 'relative' }}>
                   <div className="character-avatar">
                     {char.name[0].toUpperCase()}
                   </div>
@@ -161,9 +164,40 @@ function BookDetail() {
                     </div>
                     <div className="character-gender">{char.gender}</div>
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {voiceList.find(v => v.id === char.voice_id)?.name || char.voice_id || '—'}
-                  </div>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedChar(selectedChar === char.name ? null : char.name) }}
+                  >
+                    {voiceList.find(v => v.id === char.voice_id)?.name || char.voice_id || 'Select'} ▼
+                  </button>
+                  {selectedChar === char.name && (
+                    <div
+                      style={{
+                        position: 'absolute', right: 0, bottom: '100%', marginBottom: 4,
+                        background: 'var(--bg-light, #1a1a2e)', border: '1px solid var(--surface)',
+                        borderRadius: 8, padding: '0.5rem', zIndex: 100,
+                        maxHeight: 200, overflowY: 'auto', width: 200,
+                        boxShadow: '0 -4px 16px rgba(0,0,0,0.4)'
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {voiceList.map(voice => (
+                        <div
+                          key={voice.id}
+                          onClick={() => handleVoiceChange(char.name, voice.id)}
+                          style={{
+                            padding: '0.4rem 0.5rem', borderRadius: 6, cursor: 'pointer', marginBottom: 2,
+                            background: char.voice_id === voice.id ? 'var(--primary)' : 'transparent',
+                            color: char.voice_id === voice.id ? '#fff' : 'var(--text, #eee)'
+                          }}
+                        >
+                          <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{voice.name}</div>
+                          <div style={{ fontSize: '0.72rem', opacity: 0.7 }}>{voice.gender} · {voice.accent}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
