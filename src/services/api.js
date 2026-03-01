@@ -97,16 +97,23 @@ class ApiService {
 
   // Generate chapter audio (POST triggers generation)
   async generateAudio(bookId, chapterId) {
-    const response = await fetch(
-      `${this.serverUrl}/api/books/${bookId}/chapters/${chapterId}/audio`,
-      { method: 'POST' }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Audio generation failed: ${response.status}`)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
+    try {
+      const response = await fetch(
+        `${this.serverUrl}/api/books/${bookId}/chapters/${chapterId}/audio`,
+        { method: 'POST', signal: controller.signal }
+      )
+      if (!response.ok) {
+        throw new Error(`Audio generation failed: ${response.status}`)
+      }
+      return response.blob()
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error('Audio generation timed out after 5 minutes')
+      throw err
+    } finally {
+      clearTimeout(timeoutId)
     }
-
-    return response.blob()
   }
 
   // Get cached chapter audio (GET returns existing)

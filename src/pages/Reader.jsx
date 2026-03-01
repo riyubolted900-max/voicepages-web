@@ -235,7 +235,7 @@ function Reader() {
   }
 
   return (
-    <div style={{ paddingBottom: audioReady ? '8rem' : '1rem' }}>
+    <div style={{ paddingBottom: '8rem' }}>
       <header className="header">
         <button className="back-btn" onClick={() => navigate(`/book/${bookId}`)}>&#8592;</button>
         <h1 style={{ flex: 1, marginLeft: '0.5rem', fontSize: '1rem' }}>
@@ -334,91 +334,136 @@ function Reader() {
         </div>
       </main>
 
-      {/* Inline Player - uses audioReady state instead of ref check */}
-      {audioReady && (
-        <div style={{
-          position: 'fixed',
-          bottom: 60,
-          left: 0,
-          right: 0,
-          background: 'var(--bg-light, #1a1a2e)',
-          padding: '0.75rem 1rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          borderTop: '1px solid var(--surface, #333)',
-          zIndex: 100
-        }}>
-          <button className="play-btn" onClick={togglePlay} style={{
-            background: 'var(--primary, #e94560)',
-            border: 'none',
-            color: '#fff',
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            fontSize: '1.1rem',
-            cursor: 'pointer',
+      {/* Player bar — always visible once chapter is loaded */}
+      <div style={{
+        position: 'fixed',
+        bottom: 60,
+        left: 0,
+        right: 0,
+        background: 'var(--player-bg, rgba(28,28,30,0.97))',
+        borderTop: '1px solid var(--sep, #333)',
+        zIndex: 100,
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      }}>
+        {generating ? (
+          /* Generating state */
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+          }}>
+            <div className="spinner" style={{ width: 24, height: 24, flexShrink: 0 }} />
+            <span style={{ fontSize: '0.88rem', color: 'var(--text-2, #aaa)' }}>
+              Generating audio…
+            </span>
+          </div>
+        ) : !audioReady ? (
+          /* No audio yet — offer to generate */
+          <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0
+            padding: '0.75rem 1rem',
+            gap: '0.75rem',
           }}>
-            {playing ? '\u23F8' : '\u25B6'}
-          </button>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              ref={progressRef}
-              onClick={handleSeek}
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-3, #888)' }}>
+              Audio not generated yet
+            </span>
+            <button
+              onClick={async () => {
+                setGenerating(true)
+                setError(null)
+                try {
+                  const audioBlob = await api.generateAudio(bookId, chapterNum)
+                  if (audioBlob) setupAudioPlayer(audioBlob, chapter?.title)
+                } catch (e) {
+                  setError('Audio generation failed: ' + e.message)
+                } finally {
+                  setGenerating(false)
+                }
+              }}
               style={{
-                height: 6,
-                background: 'var(--surface, #333)',
-                borderRadius: 3,
+                background: 'var(--accent, #BF5AF2)',
+                border: 'none',
+                color: '#fff',
+                padding: '0.4rem 1rem',
+                borderRadius: 20,
+                fontSize: '0.85rem',
+                fontWeight: 600,
                 cursor: 'pointer',
-                position: 'relative'
               }}
             >
-              <div style={{
-                height: '100%',
-                background: 'var(--primary, #e94560)',
-                borderRadius: 3,
-                width: `${progress}%`,
-                transition: 'width 0.1s linear'
-              }} />
-            </div>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '0.7rem',
-              color: 'var(--text-dim, #888)',
-              marginTop: 2
-            }}>
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
+              Generate Audio
+            </button>
           </div>
+        ) : (
+          /* Audio ready — full player */
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+          }}>
+            <button className="player-play-btn" onClick={togglePlay}>
+              {playing ? '\u23F8' : '\u25B6'}
+            </button>
 
-          <select
-            value={playbackSpeed}
-            onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
-            style={{
-              background: 'var(--surface, #333)',
-              color: 'var(--text, #eee)',
-              border: 'none',
-              borderRadius: 4,
-              padding: '0.25rem',
-              fontSize: '0.8rem',
-              flexShrink: 0
-            }}
-          >
-            <option value="0.75">0.75x</option>
-            <option value="1">1x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2x</option>
-          </select>
-        </div>
-      )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                ref={progressRef}
+                onClick={handleSeek}
+                style={{
+                  height: 6,
+                  background: 'var(--sep, #333)',
+                  borderRadius: 3,
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+              >
+                <div style={{
+                  height: '100%',
+                  background: 'var(--accent, #BF5AF2)',
+                  borderRadius: 3,
+                  width: `${progress}%`,
+                  transition: 'width 0.1s linear'
+                }} />
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.7rem',
+                color: 'var(--text-3, #888)',
+                marginTop: 2
+              }}>
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            <select
+              value={playbackSpeed}
+              onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+              style={{
+                background: 'var(--bg-secondary, #333)',
+                color: 'var(--text, #eee)',
+                border: 'none',
+                borderRadius: 4,
+                padding: '0.25rem',
+                fontSize: '0.8rem',
+                flexShrink: 0
+              }}
+            >
+              <option value="0.75">0.75x</option>
+              <option value="1">1x</option>
+              <option value="1.25">1.25x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+            </select>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
